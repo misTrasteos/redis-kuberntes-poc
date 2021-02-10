@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-primary-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-primary
+  template:
+    metadata:
+      labels:
+        app: redis-primary
+    spec:
+      containers:
+        - name: redis-primary
+          image: redis:6
+          imagePullPolicy: IfNotPresent
+          ports:
+          - name: client
+            containerPort: 6379
+            protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-primary-service
+spec:
+  selector:
+    app: redis-primary
+  ports:
+    - name: client
+      port: 6379
+      targetPort: 6379
+      protocol: TCP

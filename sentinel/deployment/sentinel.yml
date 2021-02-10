@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-sentinel-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-sentinel
+  template:
+    metadata:
+      labels:
+        app: redis-sentinel
+    spec:
+      initContainers:
+      - name: copy
+        image: busybox:1
+        command:
+        - cp
+        args:
+        - '/redis-sentinel-config/redis.conf'
+        - '/redis-sentinel-config-in-pod/redis.conf'
+        volumeMounts:
+        - mountPath: /redis-sentinel-config-in-pod
+          name: redis-sentinel-config-in-pod
+        - mountPath: /redis-sentinel-config
+          name: redis-sentinel-config
+      containers:
+      - name: redis-sentinel
+        image: redis:6
+        imagePullPolicy: IfNotPresent
+        command:
+        - redis-server
+        args:
+        - '/usr/local/etc/redis/redis.conf'
+        - '--sentinel'
+        ports:
+        - name: client
+          containerPort: 26379
+          protocol: TCP
+        volumeMounts:
+        - name: redis-sentinel-config-in-pod
+          mountPath: /usr/local/etc/redis/
+      volumes:
+      - name: redis-sentinel-config-in-pod
+        emptyDir: {}
+      - name: redis-sentinel-config
+        configMap:
+          name: redis-sentinel-configmap
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-sentinel-configmap
+data:
+  redis.conf: |-
+    sentinel monitor myRedisInstallation redis-primary-service 6379 1

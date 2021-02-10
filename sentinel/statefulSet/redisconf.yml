@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-original-configmap
+data:
+  redis.primary.conf: |-
+    bind 0.0.0.0
+  redis.replica.conf: |-
+    replicaof redis-0.redis-service 6379
+  redis.sentinel.conf: |- 
+    sentinel monitor myRedisExample redis-0.redis-service 6379 1

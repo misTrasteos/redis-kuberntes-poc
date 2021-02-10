@@ -1,0 +1,81 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-sentinel-service
+  labels:
+    app: redis-sentinel
+spec:
+  clusterIP: None
+  selector:
+    app: redis-sentinel
+  ports:
+  - name: client
+    port: 26379
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-sentinel
+spec:
+  selector:
+    matchLabels:
+      app: redis-sentinel
+  serviceName: redis-sentinel-service
+  # https://v1-16.docs.kubernetes.io/docs/reference/generated/kubernetes-api/v1.14/#statefulsetspec-v1-apps
+  podManagementPolicy: Parallel
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: redis-sentinel
+    spec:
+      terminationGracePeriodSeconds: 5
+      initContainers:
+      - name: copy
+        # busybox is not working here, it needs further investigation
+        image: redis:6
+        imagePullPolicy: IfNotPresent
+        command:
+        - cp 
+        args:
+        - '-v'
+        - '-n'
+        - '/redis-original-configmap/redis.sentinel.conf'
+        - '/usr/local/etc/redis/redis.conf'
+        volumeMounts:
+        - name: redis-original-volume
+          mountPath: /redis-original-configmap
+        - name: redis-sentinel-conf
+          mountPath: /usr/local/etc/redis
+      containers:
+      - name: redis-sentinel
+        image: redis:6
+        imagePullPolicy: IfNotPresent
+        command:
+        - redis-server
+        args:
+        - '/usr/local/etc/redis/redis.conf'
+        - '--sentinel'
+        ports:
+        - name: client
+          containerPort: 26379
+          protocol: TCP
+        volumeMounts:
+        - name: redis-sentinel-conf
+          mountPath: /usr/local/etc/redis
+      volumes:
+      # volumeClaimTemplates is not referenced here
+      - name: redis-original-volume
+        configMap:
+          name: redis-original-configmap
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-sentinel-conf
+      spec:
+        # https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Mi

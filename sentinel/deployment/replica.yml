@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-replica-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-replica
+  template:
+    metadata:
+      labels:
+        app: redis-replica
+    spec:
+      containers:
+        - name: redis-replica
+          image: redis:6
+          imagePullPolicy: IfNotPresent
+          command:
+          - redis-server
+          args:
+          - '/usr/local/etc/redis/redis.conf'
+          ports:
+          - name: client
+            containerPort: 6379
+            protocol: TCP
+          volumeMounts:
+          - name: redis-replica-config
+            mountPath: /usr/local/etc/redis/redis.conf
+            subPath: redis.conf
+      volumes:
+      - name: redis-replica-config
+        configMap:
+          name: redis-replica-configmap            
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-replica-service
+spec:
+  selector:
+    app: redis-replica
+  ports:
+    - name: client
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-replica-configmap
+data:
+  redis.conf: |-
+    replicaof redis-primary-service 6379
